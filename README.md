@@ -1,6 +1,7 @@
 # RxJS Basics in Angular
 
 A small Angular app that teaches RxJS one idea at a time. Each lesson is a single,
+The same guide as a web page: [docs/RxJS-guide.html](docs/RxJS-guide.html).
 commented file in `src/app/lessons/`, and each one shows up as a card on the page.
 
 ## Run it
@@ -126,7 +127,7 @@ old, slow response can never overwrite a newer one.
 | Turn each value into a request        | `switchMap`                           |
 | Handle an error                       | `catchError`                          |
 | Share state between components        | `BehaviorSubject` in a service        |
-| Show a stream in the template         | `| async`                             |
+| Show a stream in the template         | `\| async`                            |
 
 ## A note about signals
 

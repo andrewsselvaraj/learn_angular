@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RxJS Basics in Angular</title>
+<style>
+:root { --bg:#ffffff; --fg:#1f2328; --muted:#59636e; --code-bg:#f3f4f6; --border:#d8dee4; --accent:#c2185b; }
+@media (prefers-color-scheme: dark) { :root { --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1; --code-bg:#161b22; --border:#30363d; --accent:#f06292; } }
+body { background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.6; max-width:780px; margin:0 auto; padding:2rem 16px 4rem; }
+h1 { font-size:2rem; margin-bottom:.25rem; }
+h2 { border-bottom:1px solid var(--border); padding-bottom:.3rem; margin-top:2.5rem; }
+h3 { margin-top:2rem; color:var(--accent); }
+code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.9em; background:var(--code-bg); padding:.1em .35em; border-radius:4px; }
+pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:1rem; overflow-x:auto; }
+pre code { background:none; padding:0; }
+table { border-collapse:collapse; width:100%; display:block; overflow-x:auto; }
+th, td { border:1px solid var(--border); padding:.45rem .7rem; text-align:left; }
+th { background:var(--code-bg); }
+a { color:var(--accent); }
+</style>
+</head>
+<body>
+<h1>RxJS Basics in Angular</h1>
+<p>A small Angular app that teaches RxJS one idea at a time. Each lesson is a single,
+commented file in <code>src/app/lessons/</code>, and each one shows up as a card on the page.</p>
+<h2>Run it</h2>
+<pre><code class="language-bash">npm install
+npm start          # then open http://localhost:4200
+npm test           # runs the small unit tests in src/app/app.spec.ts
+</code></pre>
+<p>Requires Node.js 20.19+ or 22.12+.</p>
+<h2>The five ideas</h2>
+<h3>1. Observable and <code>subscribe</code> — <code>01-observable-basics.ts</code></h3>
+<p>An <strong>Observable</strong> is a stream of values that arrive over time (clicks, timer ticks,
+an HTTP response). It is lazy: nothing runs until you call <code>.subscribe()</code>.</p>
+<pre><code class="language-ts">const ticks$ = new Observable&lt;string&gt;((subscriber) =&gt; {
+  subscriber.next(&#39;hello&#39;);   // send a value
+  subscriber.complete();      // no more values
+});
+
+const sub = ticks$.subscribe({
+  next: (v) =&gt; console.log(v),
+  error: (e) =&gt; console.error(e),
+  complete: () =&gt; console.log(&#39;done&#39;),
+});
+
+sub.unsubscribe(); // stop listening
+</code></pre>
+<p>The <code>$</code> at the end of a name is just a convention meaning &quot;this is an Observable&quot;.
+If you subscribe by hand, unsubscribe in <code>ngOnDestroy</code>, or the stream keeps running
+after the component is gone (a memory leak).</p>
+<h3>2. Operators: <code>map</code> and <code>filter</code> — <code>02-operators.ts</code></h3>
+<p>Operators go inside <code>.pipe(...)</code>. Each one takes a stream in and gives a new stream out,
+like <code>Array.map</code> and <code>Array.filter</code>, but over time.</p>
+<pre><code class="language-ts">from([1, 2, 3, 4, 5, 6])
+  .pipe(
+    filter((n) =&gt; n % 2 === 0), // 2, 4, 6
+    map((n) =&gt; n * 10),         // 20, 40, 60
+  )
+  .subscribe(console.log);
+</code></pre>
+<h3>3. <code>Subject</code> and <code>BehaviorSubject</code> — <code>03-subject.ts</code></h3>
+<p>A <strong>Subject</strong> is an Observable you push values into yourself with <code>.next()</code>.
+Put one in a service and any component can send or listen, which is how two unrelated
+components share data.</p>
+<pre><code class="language-ts">@Injectable({ providedIn: &#39;root&#39; })
+export class CartService {
+  private count = new BehaviorSubject(0);  // starts at 0
+  count$ = this.count.asObservable();     // read-only for everyone else
+
+  add() { this.count.next(this.count.value + 1); }
+}
+</code></pre>
+<ul>
+<li><code>Subject</code>: subscribers only get values sent after they subscribed.</li>
+<li><code>BehaviorSubject</code>: always has a current value, and new subscribers get it immediately.
+This is the one you want for state like &quot;items in cart&quot; or &quot;logged-in user&quot;.</li>
+</ul>
+<h3>4. The <code>async</code> pipe — <code>04-async-pipe.ts</code></h3>
+<p>The easiest and safest way to use an Observable in a template. Angular subscribes,
+shows the latest value, and unsubscribes for you when the component is destroyed.</p>
+<pre><code class="language-ts">seconds$ = interval(1000);
+</code></pre>
+<pre><code class="language-html">&lt;p&gt;Seconds: {{ seconds$ | async }}&lt;/p&gt;
+</code></pre>
+<p>Rule of thumb: prefer <code>| async</code> over manual <code>.subscribe()</code> whenever the value is only
+needed for display.</p>
+<h3>5. HttpClient — <code>05-http.ts</code></h3>
+<p>Every <code>HttpClient</code> call returns an Observable that emits the response once and
+completes. The request is sent only when something subscribes. It needs
+<code>provideHttpClient()</code> in <code>app.config.ts</code>.</p>
+<pre><code class="language-ts">users$ = this.http.get&lt;User[]&gt;(&#39;https://jsonplaceholder.typicode.com/users&#39;);
+</code></pre>
+<p>The lesson also builds a live search box, the classic RxJS pattern:</p>
+<pre><code class="language-ts">users$ = this.terms.pipe(           // a Subject of typed text
+  debounceTime(300),                // wait for typing to pause
+  distinctUntilChanged(),           // ignore repeats
+  switchMap((term) =&gt; this.http.get&lt;User[]&gt;(url)), // cancel the old request, start a new one
+  catchError(() =&gt; of([])),         // don&#39;t let one error kill the stream
+);
+</code></pre>
+<p><code>switchMap</code> is the key: when a new term arrives it cancels the previous request, so an
+old, slow response can never overwrite a newer one.</p>
+<h2>Cheat sheet</h2>
+<table>
+<thead>
+<tr>
+<th>You want to…</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Make a stream from values or an array</td>
+<td><code>of(1, 2, 3)</code>, <code>from([1, 2, 3])</code></td>
+</tr>
+<tr>
+<td>Emit on a timer</td>
+<td><code>interval(ms)</code>, <code>timer(ms)</code></td>
+</tr>
+<tr>
+<td>Transform each value</td>
+<td><code>map</code></td>
+</tr>
+<tr>
+<td>Keep only some values</td>
+<td><code>filter</code></td>
+</tr>
+<tr>
+<td>Wait for the user to stop typing</td>
+<td><code>debounceTime</code></td>
+</tr>
+<tr>
+<td>Skip repeated values</td>
+<td><code>distinctUntilChanged</code></td>
+</tr>
+<tr>
+<td>Turn each value into a request</td>
+<td><code>switchMap</code></td>
+</tr>
+<tr>
+<td>Handle an error</td>
+<td><code>catchError</code></td>
+</tr>
+<tr>
+<td>Share state between components</td>
+<td><code>BehaviorSubject</code> in a service</td>
+</tr>
+<tr>
+<td>Show a stream in the template</td>
+<td><code>| async</code></td>
+</tr>
+</tbody></table>
+<h2>A note about signals</h2>
+<p>This app is &quot;zoneless&quot; (the Angular 21 default), so the view updates when a <strong>signal</strong>
+changes or when the <code>async</code> pipe receives a value. That is why lessons 1 and 2 push
+results into a <code>signal()</code> instead of a plain field. Signals and RxJS work well together:
+<code>toSignal()</code> and <code>toObservable()</code> from <code>@angular/core/rxjs-interop</code> convert between them.</p>
+</body>
+</html>
