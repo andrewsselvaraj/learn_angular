@@ -1,8 +1,8 @@
 # RxJS Basics in Angular
 
 A small Angular app that teaches RxJS one idea at a time. Each lesson is a single,
-The same guide as a web page: [docs/RxJS-guide.html](docs/RxJS-guide.html).
 commented file in `src/app/lessons/`, and each one shows up as a card on the page.
+The same guide as a web page: [docs/RxJS-guide.html](docs/RxJS-guide.html).
 
 ## Run it
 
